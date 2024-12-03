@@ -74,23 +74,4 @@ if (scenario=='4'){
 }
 
 
-if (scenario=='5'){  
-  #incidence
-  alpha_values = c(0.1,0.5,0.5,0.5, 0.5, 0.5)
-  #latency
-  gamma_values = c(-0.345,-0.345,-0.345,-0.345,-0.345)
-  rho = 1.45 
-  lambda = 0.25
-  beta_values = -gamma_values*rho
-  mi = -log(lambda)/rho
-  sigma = 1/rho
-  #others
-  cens_rate = 0.1
-  tau_0 = 8
-  tau_1 = 10
-  miss_mech = "MAR"
-  sd = 1
-}
-
-
 real_parameters = c(alpha_values,beta_values)
