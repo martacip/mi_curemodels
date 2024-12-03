@@ -9,7 +9,7 @@ The two subdirectories are described in more detail below.
 # R_Simulations
 In this directory, the code used to perform the simulation studies can be found. There are the following files:
 - "imputation_cure_similation" is the main code reproducing the algorithm
-- "imputation_cure_similation" is the adjusted algorithm code for Scenario D
+- "imputation_cure_similation_4" is the adjusted algorithm code for Scenario D
 - "functions" contains all the necessary functions
 - "functions_4" contains the customized functions for Scenario D
 - "parameters" is the file from which to select the parameters set for each scenario.
