@@ -21,7 +21,7 @@ scenario = "3"
 source('functions.R')
 
 #import parameters
-source('parameters_Marta.R')
+source('parameters.R')
 
 
 
@@ -35,26 +35,17 @@ comp_coef = function(n, M, K, W_distribution, seed=NULL){
   # variables #
   #############
   
-  # XZW = mvtnorm::rmvnorm(n, c(0.5, 0.5, 0.5), matrix(c(1,0.5,0.5,0.5,1,0.5,0.5,0.5,1), nrow=3, ncol=3))
-  # X = rep(0,n)
-  # X[XZW[,1]>0.5] = 1
-  # Z = rep(0,n)
-  # Z[XZW[,2]>0.5] = 1
-  # 
-  # if (W_distribution=="Normal"){
-  #   W = XZW[,3]}
-  # else if (W_distribution=="Bernoulli"){
-  #   W = rep(0,n)
-  #   W[XZW[,3]>0.5] = 1
-  # }
+  XZW = mvtnorm::rmvnorm(n, c(0.5, 0.5, 0.5), matrix(c(1,0.5,0.5,0.5,1,0.5,0.5,0.5,1), nrow=3, ncol=3))
+  X = rep(0,n)
+  X[XZW[,1]>0.5] = 1
+  Z = rep(0,n)
+  Z[XZW[,2]>0.5] = 1
   
-  X = rbinom(n, 1, 0.5)
-  Z = rbinom(n, 1, 0.5)
-
   if (W_distribution=="Normal"){
-    W = rnorm(n, 0.5)}
+    W = XZW[,3]}
   else if (W_distribution=="Bernoulli"){
-    W = rbinom(n, 1, 0.5)
+    W = rep(0,n)
+    W[XZW[,3]>0.5] = 1
   }
   
   
@@ -86,21 +77,12 @@ comp_coef = function(n, M, K, W_distribution, seed=NULL){
   u = runif(n)
   time = rep(0,n)
   time = as.numeric((-log(u) / (lambda*exp(lp_latency%*%beta_values)))^(1/rho))
-  # time1 = rep(0, n)
-  # time1 = as.numeric((-log(u) / (lambda*exp(-rho*lp_latency%*%gamma_values)))^(1/rho))
-  # time2 = rep(0, n)
-  # time2 = exp(mi + lp_latency%*%gamma_values + sigma*revd(n))
   
   time[time > tau_0] = tau_0 #truncation of survival times 
-  # time1[time1 > tau_0] = tau_0
-  # time2[time2 > tau_0] = tau_0
-  # summary(time)
-  # summary(time1)
-  # summary(time2)
   
   time[which(G_expect==0)] = 20000
   Y = time   
-  
+
   
   #censoring   
   C = as.numeric(rexp(n, cens_rate))
@@ -113,20 +95,11 @@ comp_coef = function(n, M, K, W_distribution, seed=NULL){
   status = as.numeric(time <= C)
   
   
-  # #checking survival time generation
-  # summary(coxph(Surv(Y, status) ~ W + Z))
-  # 
-  # #checking cured fraction generation
-  # summary(glm(status ~ W + X))
-  
-  
-  
   #observed uncured indicator
   dataKM = as.data.frame(cbind(Y, status))
   fitKM = survfit(Surv(Y, status) ~ 1, data = dataKM)
   plateau = fitKM$time[tail(which((diff(fitKM$surv) < 0) == T), 1) + 1] #to find the elbow of the survival curve
   G = ifelse(status==1, 1, ifelse(Y > plateau, 0, NA))
-  
   
   
   #summary statistics on cure and censoring rates
@@ -154,16 +127,6 @@ comp_coef = function(n, M, K, W_distribution, seed=NULL){
   W_mcar_30[sample(1:n, 0.3*n)] = NA
   
   # MAR with logit form and 30% missing values 
-  #Calculate response propensity:
-  logit_prob = 0.3 - 0.5*X - 0.5*Z  #response model
-  rp = exp(logit_prob) / (exp(logit_prob) + 1) # Suppress values between 0 and 1 via inverse-logit
-  
-  # rp can be seen as probability to respond in y. 
-  # See literature about reponse propensity for more details
-  
-  # Create missings based on rp
-  W_mar = rbinom(n, 1, rp)
-  
   data = data_full
   data_mar = ampute(data[,-7], prop = 0.3, patterns = c(1,1,0,1,1,1), mech = "MAR")
   data_mar_bis = data_mar$amp
@@ -192,8 +155,6 @@ comp_coef = function(n, M, K, W_distribution, seed=NULL){
   ### STEP 0: Initialization
   
   #estimate of alpha and beta on the full dataset
-  # fit_cure_sm = smcure(Surv(Y,status) ~ W + Z, cureform = ~ W + X,
-  #                   data = data_full[,-dim(data_full)[2]], model="ph")
   fit_cure = cureph(Surv.cure(Y,status) ~ W + X, formula2 = ~ W + Z,
                     data = data_full[,-dim(data_full)[2]])
   alpha_X0 = fit_cure[["coefficients"]][["logistic"]][["(Intercept)"]]
@@ -300,17 +261,6 @@ comp_coef = function(n, M, K, W_distribution, seed=NULL){
   ##############
   
   #no missing values
-  # cm_all = smcure(Surv(Y,status) ~ W + Z, cureform = ~ W + X, data = data_full, model="ph")
-  # coef_all_df = data.frame(full_alpha0 = cm_all[["b"]][["(Intercept)"]],
-  #                          full_alphaW = cm_all[["b"]][["Z[, -1]W"]],
-  #                          full_alphaX = cm_all[["b"]][["Z[, -1]X"]],
-  #                          full_betaW = cm_all[["beta"]][["X[, -1]W"]],
-  #                          full_betaZ = cm_all[["beta"]][["X[, -1]Z"]])
-  # sd_all_df = data.frame(full_alpha0 = cm_all[["b_sd"]][[1]],
-  #                        full_alphaW = cm_all[["b_sd"]][[2]],
-  #                        full_alphaX = cm_all[["b_sd"]][[3]],
-  #                        full_betaW = cm_all[["beta_sd"]][[1]],
-  #                        full_betaZ = cm_all[["beta_sd"]][[2]])
   cm_all = cureph(Surv.cure(Y,status) ~ W + X, formula2 = ~ W + Z,
                     data = data_full[,-dim(data_full)[2]])
   coef_all_df = data.frame(full_alpha0 = cm_all[["coefficients"]][["logistic"]][["(Intercept)"]],
@@ -329,17 +279,6 @@ comp_coef = function(n, M, K, W_distribution, seed=NULL){
     
   
   #complete-case analysis
-  # cm_cc = smcure(Surv(Y,status) ~ W + Z, cureform = ~ W + X, data = data_cca, model="ph")
-  # coef_cca_df = data.frame(cc_alpha0 = cm_cc[["b"]][["(Intercept)"]],
-  #                          cc_alphaW = cm_cc[["b"]][["Z[, -1]W"]],
-  #                          cc_alphaX = cm_cc[["b"]][["Z[, -1]X"]],
-  #                          cc_betaW = cm_cc[["beta"]][["X[, -1]W"]],
-  #                          cc_betaZ = cm_cc[["beta"]][["X[, -1]Z"]])
-  # sd_cca_df = data.frame(cc_alpha0 = cm_cc[["b_sd"]][[1]],
-  #                        cc_alphaW = cm_cc[["b_sd"]][[2]],
-  #                        cc_alphaX = cm_cc[["b_sd"]][[3]],
-  #                        cc_betaW = cm_cc[["beta_sd"]][[1]],
-  #                        cc_betaZ = cm_cc[["beta_sd"]][[2]])
   cm_cc = cureph(Surv.cure(Y,status) ~ W + X, formula2 = ~ W + Z,
                   data = data_cca)
   coef_cca_df = data.frame(cc_alpha0 = cm_cc[["coefficients"]][["logistic"]][["(Intercept)"]],
@@ -401,7 +340,6 @@ comp_coef = function(n, M, K, W_distribution, seed=NULL){
 
 
 
-#I = 1; n = 500; M = 1; K = 1; W_distribution = "Normal"
 I = as.numeric(args[1]) #number of data sets
 n = as.numeric(args[2]) #number of observations
 M = as.numeric(args[3]) #number of iterations 
@@ -409,8 +347,7 @@ K = as.numeric(args[4]) #number of imputed data sets
 W_distribution = args[5] #type of distribution (Bernoulli or Normal)
 
 
-# ncores = detectCores() - 2
-cl = makeCluster(120)
+cl = makeCluster(120) #number of cores 
 registerDoParallel(cl)
 
 coef_mat = foreach(i=1:I, .export = c(".GlobalEnv"), .combine = "rbind", .packages = c("mice","smcure","survival","survminer","dplyr","extRemes","curephEM")) %dopar%{
